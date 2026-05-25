@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import Assignment from '../models/Assignment';
 import { addQuestionGenerationJob } from '../queues/questionQueue';
-import { getRedis } from '../config/redis';
+import redis from '../config/redis';
 
 export const createAssignment = async (req: Request, res: Response): Promise<void> => {
   try {
