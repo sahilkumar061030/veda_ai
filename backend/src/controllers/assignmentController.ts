@@ -68,7 +68,7 @@ export const createAssignment = async (req: Request, res: Response): Promise<voi
     await assignment.save();
 
     // Cache status in Redis
-    const redis = getRedis();
+    // const redis = getRedis();
     await redis.set(
       `assignment:${assignment._id}:status`,
       'pending',
@@ -156,7 +156,7 @@ export const getAssignment = async (req: Request, res: Response): Promise<void> 
     }
 
     // Check Redis for latest status
-    const redis = getRedis();
+    // const redis = getRedis();
     const cachedStatus = await redis.get(`assignment:${id}:status`);
     if (cachedStatus && cachedStatus !== assignment.status) {
       // Return cached status if newer
@@ -197,7 +197,7 @@ export const regenerateAssignment = async (req: Request, res: Response): Promise
     await assignment.save();
 
     // Update Redis
-    const redis = getRedis();
+    // const redis = getRedis();
     await redis.set(`assignment:${id}:status`, 'pending', 'EX', 3600);
 
     res.json({
@@ -226,7 +226,7 @@ export const deleteAssignment = async (req: Request, res: Response): Promise<voi
     }
 
     // Clear Redis cache
-    const redis = getRedis();
+    // const redis = getRedis();
     await redis.del(`assignment:${id}:status`);
 
     res.json({ message: 'Assignment deleted successfully' });
