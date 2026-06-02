@@ -18,6 +18,7 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.options('*', cors());
 app.use(
   cors({
        origin: [
