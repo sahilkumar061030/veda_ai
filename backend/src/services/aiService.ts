@@ -1,12 +1,10 @@
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
 import { IGeneratedPaper, IDifficulty } from '../types/types';
 
 dotenv.config();
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 interface GenerationParams {
   title: string;
@@ -40,22 +38,20 @@ export const generateQuestions = async (
   const hardCount = Math.round((difficulty.hard / 100) * numberOfQuestions);
   const mediumCount = numberOfQuestions - easyCount - hardCount;
 
-  // Calculate marks per question (approximate)
+  // Calculate marks per question
   const marksPerQuestion = Math.round(totalMarks / numberOfQuestions);
 
-  const systemPrompt = `You are an expert educational assessment creator. You create well-structured examination papers with high-quality questions.
+  const prompt = `You are an expert educational assessment creator. Create a well-structured examination paper.
 
 IMPORTANT RULES:
-1. You MUST return valid JSON only — no markdown, no explanations, no code fences.
+1. Return valid JSON only — no markdown, no explanations, no code fences.
 2. Follow the exact JSON schema provided.
 3. Questions must be age-appropriate for the specified grade level.
 4. Each question must be clear, unambiguous, and educationally sound.
 5. For MCQ questions, provide exactly 4 options labeled "A", "B", "C", "D".
 6. For True/False questions, the answer should be either "True" or "False".
 7. Distribute marks appropriately based on difficulty.
-8. Group questions by type into sections.`;
-
-  const userPrompt = `Create an examination paper with the following specifications:
+8. Group questions by type into sections.
 
 SUBJECT: ${subject}
 GRADE/CLASS: ${grade}
@@ -90,7 +86,7 @@ Return the response in this EXACT JSON format:
           "question": "The question text",
           "type": "MCQ|Short Answer|Long Answer|True/False",
           "difficulty": "Easy|Medium|Hard",
-          "marks": number,
+          "marks": 2,
           "options": ["A. option1", "B. option2", "C. option3", "D. option4"],
           "correctAnswer": "The correct answer"
         }
@@ -99,26 +95,30 @@ Return the response in this EXACT JSON format:
   ]
 }
 
-IMPORTANT: Return ONLY the JSON object. No additional text, markdown formatting, or code blocks.`;
+IMPORTANT: Return ONLY the JSON object. No additional text, markdown, or code blocks.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.7,
-      max_tokens: 4000,
-      response_format: { type: 'json_object' },
+    // Use Gemini 1.5 Flash — fast and free!
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-1.5-flash',
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 4000,
+      },
     });
 
-    const content = response.choices[0]?.message?.content;
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let content = response.text();
+
     if (!content) {
       throw new Error('Empty response from AI');
     }
 
-    // Parse and validate JSON
+    // Clean response — remove markdown code fences if present
+    content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    // Parse JSON
     const paper = JSON.parse(content) as IGeneratedPaper;
 
     // Validate structure
