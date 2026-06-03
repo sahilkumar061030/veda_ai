@@ -1,10 +1,12 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from 'groq-sdk';
 import dotenv from 'dotenv';
 import { IGeneratedPaper, IDifficulty } from '../types/types';
 
 dotenv.config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
 interface GenerationParams {
   title: string;
@@ -33,25 +35,21 @@ export const generateQuestions = async (
     fileContent,
   } = params;
 
-  // Calculate question distribution by difficulty
   const easyCount = Math.round((difficulty.easy / 100) * numberOfQuestions);
   const hardCount = Math.round((difficulty.hard / 100) * numberOfQuestions);
   const mediumCount = numberOfQuestions - easyCount - hardCount;
-
-  // Calculate marks per question
   const marksPerQuestion = Math.round(totalMarks / numberOfQuestions);
 
-  const prompt = `You are an expert educational assessment creator. Create a well-structured examination paper.
-
+  const systemPrompt = `You are an expert educational assessment creator. You create well-structured examination papers with high-quality questions.
 IMPORTANT RULES:
-1. Return valid JSON only — no markdown, no explanations, no code fences.
+1. You MUST return valid JSON only — no markdown, no explanations, no code fences.
 2. Follow the exact JSON schema provided.
 3. Questions must be age-appropriate for the specified grade level.
-4. Each question must be clear, unambiguous, and educationally sound.
-5. For MCQ questions, provide exactly 4 options labeled "A", "B", "C", "D".
-6. For True/False questions, the answer should be either "True" or "False".
-7. Distribute marks appropriately based on difficulty.
-8. Group questions by type into sections.
+4. For MCQ questions, provide exactly 4 options labeled "A", "B", "C", "D".
+5. For True/False questions, the answer should be either "True" or "False".
+6. Group questions by type into sections.`;
+
+  const userPrompt = `Create an examination paper with the following specifications:
 
 SUBJECT: ${subject}
 GRADE/CLASS: ${grade}
@@ -69,53 +67,49 @@ APPROXIMATE MARKS PER QUESTION: ${marksPerQuestion}
 ${instructions ? `\nADDITIONAL INSTRUCTIONS: ${instructions}` : ''}
 ${fileContent ? `\nREFERENCE MATERIAL:\n${fileContent.substring(0, 3000)}` : ''}
 
-Return the response in this EXACT JSON format:
+Return ONLY this exact JSON format, no other text:
 {
   "title": "${title}",
   "subject": "${subject}",
   "grade": "${grade}",
-  "duration": "estimated duration string like '2 Hours'",
+  "duration": "2 Hours",
   "totalMarks": ${totalMarks},
   "institution": "VedaAI Assessment",
   "sections": [
     {
-      "title": "Section A - [Question Type]",
-      "instruction": "Clear instruction for this section",
+      "title": "Section A - MCQ",
+      "instruction": "Choose the correct answer",
       "questions": [
         {
-          "question": "The question text",
-          "type": "MCQ|Short Answer|Long Answer|True/False",
-          "difficulty": "Easy|Medium|Hard",
+          "question": "Question text here",
+          "type": "MCQ",
+          "difficulty": "Easy",
           "marks": 2,
           "options": ["A. option1", "B. option2", "C. option3", "D. option4"],
-          "correctAnswer": "The correct answer"
+          "correctAnswer": "A. option1"
         }
       ]
     }
   ]
-}
-
-IMPORTANT: Return ONLY the JSON object. No additional text, markdown, or code blocks.`;
+}`;
 
   try {
-    // Use Gemini 2.0 Flash — fast and free!
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash',
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 4000,
-      },
+    const response = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 4000,
     });
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    let content = response.text();
-
+    let content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error('Empty response from AI');
     }
 
-    // Clean response — remove markdown code fences if present
+    // Clean response
     content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
     // Parse JSON
@@ -134,7 +128,6 @@ IMPORTANT: Return ONLY the JSON object. No additional text, markdown, or code bl
     paper.institution = paper.institution || 'VedaAI Assessment';
     paper.generatedAt = new Date();
 
-    // Validate each section has questions
     for (const section of paper.sections) {
       if (!section.questions || !Array.isArray(section.questions) || section.questions.length === 0) {
         throw new Error(`Section "${section.title}" has no questions`);
