@@ -24,11 +24,21 @@ export const createAssignment = async (req: Request, res: Response): Promise<voi
     } = req.body;
 
     // Validate difficulty sums to 100
-    const diffSum = difficulty.easy + difficulty.medium + difficulty.hard;
-    if (diffSum !== 100) {
-      res.status(400).json({ error: 'Difficulty percentages must sum to 100' });
-      return;
-    }
+
+//  Fix — parse BEFORE using
+const parsedDifficulty = typeof difficulty === 'string' 
+  ? JSON.parse(difficulty) 
+  : difficulty;
+
+const parsedQuestionTypes = typeof questionTypes === 'string'
+  ? JSON.parse(questionTypes)
+  : questionTypes;
+
+const diffSum = parsedDifficulty.easy + parsedDifficulty.medium + parsedDifficulty.hard;
+if (diffSum !== 100) {
+  res.status(400).json({ error: 'Difficulty percentages must sum to 100' });
+  return;
+}
 
     // Handle file upload
     let uploadedFile;
