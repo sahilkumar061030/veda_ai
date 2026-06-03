@@ -26,15 +26,24 @@ export const createAssignment = async (req: Request, res: Response): Promise<voi
     // Validate difficulty sums to 100
 
 //  Fix — parse BEFORE using
-const parsedDifficulty = typeof difficulty === 'string' 
-  ? JSON.parse(difficulty) 
+//  Parse first
+const parsedDifficulty = typeof difficulty === 'string'
+  ? JSON.parse(difficulty)
   : difficulty;
 
 const parsedQuestionTypes = typeof questionTypes === 'string'
   ? JSON.parse(questionTypes)
   : questionTypes;
 
+//  Force to numbers
+parsedDifficulty.easy = Number(parsedDifficulty.easy);
+parsedDifficulty.medium = Number(parsedDifficulty.medium);
+parsedDifficulty.hard = Number(parsedDifficulty.hard);
+
+//  Now validate
 const diffSum = parsedDifficulty.easy + parsedDifficulty.medium + parsedDifficulty.hard;
+console.log('diffSum:', diffSum); // Add this to debug
+
 if (diffSum !== 100) {
   res.status(400).json({ error: 'Difficulty percentages must sum to 100' });
   return;
