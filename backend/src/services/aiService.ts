@@ -98,9 +98,9 @@ Return the response in this EXACT JSON format:
 IMPORTANT: Return ONLY the JSON object. No additional text, markdown, or code blocks.`;
 
   try {
-    // Use Gemini 1.5 Flash — fast and free!
+    // Use Gemini 2.0 Flash — fast and free!
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.0-flash',
       generationConfig: {
         temperature: 0.7,
         maxOutputTokens: 4000,
